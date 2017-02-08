@@ -132,7 +132,7 @@ fabric.properties
 .idea/modules/big-data-spark.iml
 .idea/sbt.xml
 project/
-/.idea/modules/
-/.idea/scala_compiler.xml
-/.idea/vcs.xml
-/.idea/
+.idea/modules/*
+.idea/scala_compiler.xml
+.idea/vcs.xml
+.idea/
