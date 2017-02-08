@@ -99,6 +99,17 @@ project/plugins/project/
 .idea/dynamic.xml
 .idea/uiDesigner.xml
 
+.idea/libraries/
+.idea/misc.xml
+.idea/modules.xml
+.idea/modules/big-data-spark.iml
+.idea/sbt.xml
+
+.idea/modules/*
+.idea/scala_compiler.xml
+.idea/vcs.xml
+.idea/
+
 # Gradle:
 .idea/gradle.xml
 .idea/libraries
@@ -132,7 +143,4 @@ fabric.properties
 .idea/modules/big-data-spark.iml
 .idea/sbt.xml
 project/
-.idea/modules/*
-.idea/scala_compiler.xml
-.idea/vcs.xml
-.idea/
+
