@@ -25,6 +25,7 @@ object WordCount {
       .map(word => (word, 1))
       .reduceByKey(_ + _)
     counts.foreach(println) // Count word and display
+    counts.saveAsTextFile("WordCount-Results")
 
   }
 
