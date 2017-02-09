@@ -2,8 +2,7 @@
   * Created by marti on 08/02/2017.
   */
 
-import org.apache.spark.{SparkConf, SparkContext}
-// for spark context and conf
+import org.apache.spark.{SparkConf, SparkContext}   // for spark context and conf
 
 
 object WordCount {
@@ -18,8 +17,7 @@ object WordCount {
 
     val sc = new SparkContext(conf) // Actual starting execution point
 
-    val lines = sc.parallelize(Seq("This is first line", "This is second line", "This is third line"))
-    // Defining parallelize action on spark context
+    val lines = sc.parallelize(Seq("This is first line", "This is second line", "This is third line"))  // Defining parallelize action on spark context
 
     val counts = lines.flatMap(line => line.split(" ")) // flatmap operation
       .map(word => (word, 1))
@@ -27,7 +25,8 @@ object WordCount {
     counts.foreach(println) // Count word and display
     counts.saveAsTextFile("WordCount-Results")
 
-  }
+    sc.stop()
 
+  }
 
 }

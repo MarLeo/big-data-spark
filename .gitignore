@@ -144,3 +144,4 @@ fabric.properties
 .idea/sbt.xml
 project/
 
+/id_rsa_user04
