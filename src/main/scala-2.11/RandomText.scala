@@ -2,6 +2,9 @@
   * Created by marti on 09/02/2017.
   */
 
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, FileUtil, Path}
+import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
@@ -14,7 +17,9 @@ object RandomText {
   var selectedLines = 10
   var textParsed = false
   var lines = new ArrayBuffer[String]
-  var words = new ArrayBuffer[String]
+  var arrayWords = new ArrayBuffer[String]()
+  var numBytesToWrite = 2000
+  var items : Int = 0
 
 
   def main(args: Array[String]): Unit = {
@@ -26,58 +31,118 @@ object RandomText {
 
     val sc = new SparkContext(conf)
 
-    //generateSentence
+    val start = System.currentTimeMillis()
 
-    //val list = sc.parallelize(Seq("C:\\Users\\marti\\Documents\\IdeaProjects\\big-data-spark\\src\\main\\resources\\parseable.txt"))
+    println("Job Started :" + start)
 
     val list = sc.textFile(args(0))
 
     val counts = list.flatMap(line => line.split("\n"))
-          //.map(word => (word, 1))
-            //.reduceByKey(_+_)
-    var random = new Random()
-    for (i <- 0 until counts.take(20).size) {
-      var index = random.nextInt(counts.take(60).size)
-      words += counts.collect().apply(index)
+
+
+    while (numBytesToWrite > 0) {
+      val words = counts.takeSample(true, 16, System.nanoTime.toInt)
+
+      val line = new StringBuilder()
+
+      arrayWords += words.addString(line, ", ").toString()
+
+      arrayWords.foreach(println)
+     /*
+      val text = sc.makeRDD(Seq(line))            //sc.parallelize(Seq(line))
+
+      text.foreach(println)
+
+      val hadoopConfig = new Configuration()
+      val hdfs = FileSystem.get(hadoopConfig)
+      val sourcePath = new Path(args(1))
+      val outputPath = new Path(args(1))
+      if (hdfs.exists(outputPath)) {
+        hdfs.delete(outputPath, true)
+      }
+      */
+      //text.saveAsTextFile(sourcePath.toString)
+
+      // merge
+      // FileUtil.copyMerge(hdfs, sourcePath, hdfs, outputPath, true, hadoopConfig, null)
+
+      numBytesToWrite -= words.length
+
+      items += 1
+
+      if (items % 200 == 0) {
+        println("Wrote " + items +", " + numBytesToWrite + " bytes left")
+      }
+
     }
 
-    words.foreach(println)
+    val hadoopConfig = new Configuration()
+    val hdfs = FileSystem.get(hadoopConfig)
+    val outputPath = new Path(args(1))
+    if (hdfs.exists(outputPath)) {
+      hdfs.delete(outputPath, true)
+    }
 
-    counts.foreach(println)
-    counts.saveAsTextFile("random_text")
+    val out = sc.parallelize(List(arrayWords))
+
+    out.repartition(3).saveAsTextFile(outputPath.toString)
+
+    val end = System.currentTimeMillis()
+
+    println("Job Ended :" + end)
+    println("Done with " + items + " records")
+    println("The job took " + (end - start) / 1000  + " seconds" )
 
     sc.stop()
 
   }
 
-  /*
-  def sentence: Unit = {
-    selectedLines = 10
-    generateSentence
-
-  }
-
-
-  def getWords = words
-
-  def generateSentence: Unit = {
-    var random = new Random
-    if(!textParsed) {getLines; textParsed = true}
-    for (i <- 0 until selectedLines) {
-      var index = random.nextInt(lines.length)
-      words += lines(index)
-      lines.remove(index)
+  def merge(srcPath: String, dstPath: String, fileName: String): Unit = {
+    val hadoopConfig = new Configuration()
+    val hdfs = FileSystem.get(hadoopConfig)
+    val destinationPath = new Path(dstPath)
+    if (hdfs.exists(destinationPath)) {
+      hdfs.delete(destinationPath, true)
     }
-
+    FileUtil.copyMerge(hdfs, new Path(srcPath), hdfs, new Path(dstPath + "/" + fileName), false, hadoopConfig, null)
   }
 
-  def getLines: Unit = {
-    for (line <- Source.fromFile("C:\\Users\\marti\\Documents\\IdeaProjects\\big-data-spark\\src\\main\\resources\\parseable.txt").getLines()){
-      lines += line
-    }
+
+  def saveAsTextFileAndMerge[T](hdfsServer: String, fileName: String, rdd: RDD[T]): Unit = {
+    val random = new Random()
+    val sourceFile = hdfsServer + "/tmp/" + random.nextInt(200000)
+    rdd.saveAsTextFile(sourceFile)
+    val dstPath = hdfsServer + "/final/"
+    merge(sourceFile, dstPath, fileName)
   }
 
-*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
