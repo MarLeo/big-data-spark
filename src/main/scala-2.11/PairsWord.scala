@@ -15,7 +15,7 @@ object PairsWord {
 
     val conf = new SparkConf()
       .setMaster("local[*]")
-      .setAppName("Random text generator")
+      .setAppName("words pairs occurences")
       .set("spark.executor.memory", "2g")
 
     val sc = new SparkContext(conf)
