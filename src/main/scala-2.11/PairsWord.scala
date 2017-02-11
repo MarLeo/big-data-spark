@@ -1,42 +1,56 @@
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.io.NullWritable
+import org.apache.hadoop.mapred.lib.MultipleTextOutputFormat
 import org.apache.spark.{SparkConf, SparkContext}
 
 /**
   * Created by marti on 11/02/2017.
   */
+
+
+/* Custom TextOuput Format */
+class RDDMultipleTextOutputFormat extends  MultipleTextOutputFormat[Any, Any] {
+
+  override def generateActualKey(key: Any, value: Any): Any =
+    NullWritable.get()
+
+  override def generateFileNameForKeyValue(key: Any, value: Any, name: String): String =
+    return key.asInstanceOf[String] + "-" + name
+}
+
+
+
 object PairsWord {
+
+  val conf = new SparkConf()
+    .setMaster("local[*]")
+    .setAppName("words pairs occurences")
+    .set("spark.executor.memory", "2g")
+  // context
+  val sc = new SparkContext(conf)
 
   def main(args: Array[String]): Unit = {
 
+    // input and output paths
     val inputPath = new Path(args(0))
     val outputPath = new Path(args(1))
 
-
-    val conf = new SparkConf()
-      .setMaster("local[*]")
-      .setAppName("words pairs occurences")
-      .set("spark.executor.memory", "2g")
-
-    val sc = new SparkContext(conf)
-
+    // start time
     val start = System.currentTimeMillis()
-
     println("Job Started :" + start)
 
-    val data = sc.textFile(inputPath.toString)
+    // input text files
+    val data =  sc.wholeTextFiles(inputPath.toString) //sc.textFile(inputPath.toString)
 
-    val pairs = data.flatMap{ line => line.split(",") // "word1,word2,word3" => Array(word1,word2,word3)
-                                          .combinations(2) // Iterator
-                                          .toSeq           // Array(Array(word1,word2), Array(word1,word3), Array(word2,word3))
-                                          .map{ case list => list(0) -> list(1) } } // Array((word1,word2),(word1,word3),(word2,word3))
+    // final output RDD
+    var output : org.apache.spark.rdd.RDD[(String, String)] = sc.emptyRDD
 
-    // Array((word1,word2),(word1,word3),(word2,word3),...)
+    // list of files to process
+    val files = data.map{ case (file, content) => file}
 
-    val result = pairs.map( item => item -> 1) // Array(((word1,word2),1) ,((word1,word3),1),((word2,word3),1))
-                      .reduceByKey(_+_)   // Array(((word1,word2),1) ,((word1,word3),1),((word2,word3),1),...)
-
-    //val result = data.map(line => line.split(",")).flatMap(value => value.sliding(2)).map(tuple => (tuple(0), tuple(1)) -> 1).reduceByKey(_+_)
+    // apply create pairs on each files
+    files.collect().foreach( fileName => { output = output.union(CreatePairs(fileName))  } )
 
     val hadoopConfig = new Configuration()
     val hdfs = FileSystem.get(hadoopConfig)
@@ -44,9 +58,27 @@ object PairsWord {
       hdfs.delete(outputPath, true)
     }
 
-    result.foreach(println)
+    // custom output format
+    output.saveAsHadoopFile(outputPath.toString, classOf[String], classOf[String], classOf[RDDMultipleTextOutputFormat])
 
-    result.saveAsTextFile(outputPath.toString)
+    /*
+    val pairs = data.map( line => line.split(",")).flatMap(value => value.sliding(2).toSeq) // "word1,word2,word3" => Array(word1,word2,word3)
+                                          //.combinations(2) // Iterator
+                                                    // Array(Array(word1,word2), Array(word1,word3), Array(word2,word3))
+                                          .map( list => list(0) -> list(1) )// Array((word1,word2),(word1,word3),(word2,word3))
+
+    // Array((word1,word2),(word1,word3),(word2,word3),...)
+
+    val result = pairs.map( item => item -> 1) // Array(((word1,word2),1) ,((word1,word3),1),((word2,word3),1))
+                      .reduceByKey(_+_).sortBy(_._1, true, 4)   // Array(((word1,word2),1) ,((word1,word3),1),((word2,word3),1),...)
+
+    //val result = data.map(line => line.split(",")).flatMap(value => value.sliding(2)).map(tuple => (tuple(0), tuple(1)) -> 1).reduceByKey(_+_)
+
+ result.foreach(println)
+
+    result.repartition(4).saveAsTextFile(outputPath.toString)
+    */
+
 
     val end = System.currentTimeMillis()
 
@@ -54,6 +86,32 @@ object PairsWord {
     println("The job took " + (end - start) / 1000  + " seconds" )
 
     sc.stop()
+  }
+
+
+
+  object CreatePairs extends Serializable {
+
+    def apply(file : String): org.apache.spark.rdd.RDD[(String, String)] = {
+
+    val path = file.split('/').last
+
+    val content = sc.textFile(file)
+
+    val pairs = content.map(line => line.split(" "))
+      .flatMap(value => value.sliding(2))
+      .map(list => list(0) -> list(1))
+
+    val result = pairs.map(item => item -> 1)
+      .reduceByKey(_+_)
+
+    val output = result.map(out => (path, out._1 + " " + out._2))
+
+    output
+
+    //result.foreach(println)
+    }
+
   }
 
 
