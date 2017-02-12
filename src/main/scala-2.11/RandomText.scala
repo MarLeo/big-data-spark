@@ -2,34 +2,32 @@
   * Created by marti on 09/02/2017.
   */
 
+import java.io._
+
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, FileUtil, Path}
-import org.apache.spark.rdd.RDD
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.{SparkConf, SparkContext}
 
-import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
 
 object RandomText {
 
-  var selectedLines = 10
-  var textParsed = false
-  var lines = new ArrayBuffer[String]
-  var arrayWords = new ArrayBuffer[String]()
-  var numBytesToWrite = 2000
+  var numBytesToWrite = 30 * Math.pow(1024, 2)
   var items : Int = 0
+
+  val conf = new SparkConf()
+    .setMaster("local[*]")
+    .setAppName("Random text generator")
+    .set("spark.executor.memory", "2g")
+
+  val sc = new SparkContext(conf)
 
 
   def main(args: Array[String]): Unit = {
 
-    val conf = new SparkConf()
-          .setMaster("local[*]")
-             .setAppName("Random text generator")
-                .set("spark.executor.memory", "2g")
 
-    val sc = new SparkContext(conf)
 
     val start = System.currentTimeMillis()
 
@@ -37,55 +35,33 @@ object RandomText {
 
     val list = sc.textFile(args(0))
 
-    val counts = list.flatMap(line => line.split("\n"))
+    val counts = list.flatMap(line => line.split("\n"))//.coalesce(10, true)
 
-
-    while (numBytesToWrite > 0) {
-      val words = counts.takeSample(true, 16, System.nanoTime.toInt)
-
-      val line = new StringBuilder()
-
-      arrayWords += words.addString(line, ", ").toString()
-
-      arrayWords.foreach(println)
-     /*
-      val text = sc.makeRDD(Seq(line))            //sc.parallelize(Seq(line))
-
-      text.foreach(println)
-
-      val hadoopConfig = new Configuration()
-      val hdfs = FileSystem.get(hadoopConfig)
-      val sourcePath = new Path(args(1))
-      val outputPath = new Path(args(1))
-      if (hdfs.exists(outputPath)) {
-        hdfs.delete(outputPath, true)
-      }
-      */
-      //text.saveAsTextFile(sourcePath.toString)
-
-      // merge
-      // FileUtil.copyMerge(hdfs, sourcePath, hdfs, outputPath, true, hadoopConfig, null)
-
-      numBytesToWrite -= words.length
-
-      items += 1
-
-      if (items % 200 == 0) {
-        println("Wrote " + items +", " + numBytesToWrite + " bytes left")
-      }
-
-    }
 
     val hadoopConfig = new Configuration()
     val hdfs = FileSystem.get(hadoopConfig)
-    val outputPath = new Path(args(1))
+    val outputPath = new Path(args(2))
     if (hdfs.exists(outputPath)) {
       hdfs.delete(outputPath, true)
     }
 
-    val out = sc.parallelize(List(arrayWords))
+    //val out = hdfs.create(outputPath)
 
-    out.repartition(3).saveAsTextFile(outputPath.toString)
+    val out = hdfs.create(outputPath)
+
+    for (a <- 0 until (10) ) {
+      val random = new Random()
+      val file = new File(args(1) + "file" + a + ".txt")
+      file.createNewFile()
+      val writer = new PrintWriter(new FileOutputStream(file, true))
+      do {
+        items += 1
+        writer.write(counts.takeSample(false, 3000, System.nanoTime()).mkString(" ") + ".\n")
+        //addFile(file.toString, outputPath.toString, hdfs.getConf)
+      } while (file.length() < numBytesToWrite)
+      //IOUtils.copyBytes(new BufferedInputStream(new FileInputStream(file.toString)), out, 4096, true)
+      writer.close()
+    }
 
     val end = System.currentTimeMillis()
 
@@ -97,54 +73,55 @@ object RandomText {
 
   }
 
-  def merge(srcPath: String, dstPath: String, fileName: String): Unit = {
-    val hadoopConfig = new Configuration()
-    val hdfs = FileSystem.get(hadoopConfig)
-    val destinationPath = new Path(dstPath)
-    if (hdfs.exists(destinationPath)) {
-      hdfs.delete(destinationPath, true)
+
+  def addFile(source : String, dest : String, conf : Configuration): Unit = {
+
+    val fileSystem = FileSystem.get(conf)
+
+    // Get the filename out of the file path
+    val filename = source.substring(source.lastIndexOf('/') + 1, source.length)
+
+    var dst : String = null
+
+    // Create the destination path including the filename.
+    if(dest.charAt(dest.length() - 1) != '/') {
+      dst = dest + "/" + filename
+    } else {
+      dst = dest + filename
     }
-    FileUtil.copyMerge(hdfs, new Path(srcPath), hdfs, new Path(dstPath + "/" + fileName), false, hadoopConfig, null)
+
+    // Check if te file already exists
+    val path = new Path(dst)
+    if (fileSystem.exists(path)) {
+      return ;
+    }
+
+    // Create a new file and write to it.
+    val out = fileSystem.create(path)
+    val in = new BufferedInputStream(new FileInputStream(new File(source)))
+
+    val b = new Array[Byte](1024)
+    var numBytes = 0
+    while (in.read(b) > 0) {
+      numBytes = in.read(b)
+      out.write(b, 0, numBytes)
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   }
-
-
-  def saveAsTextFileAndMerge[T](hdfsServer: String, fileName: String, rdd: RDD[T]): Unit = {
-    val random = new Random()
-    val sourceFile = hdfsServer + "/tmp/" + random.nextInt(200000)
-    rdd.saveAsTextFile(sourceFile)
-    val dstPath = hdfsServer + "/final/"
-    merge(sourceFile, dstPath, fileName)
-  }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 }

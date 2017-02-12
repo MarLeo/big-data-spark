@@ -30,6 +30,8 @@ object PairsWord {
   // context
   val sc = new SparkContext(conf)
 
+  var num : Int = 0
+
   def main(args: Array[String]): Unit = {
 
     // input and output paths
@@ -58,26 +60,11 @@ object PairsWord {
       hdfs.delete(outputPath, true)
     }
 
+
+  //  files.collect().foreach(filename => { createPairs(filename, outputPath.toString)})
+
     // custom output format
     output.saveAsHadoopFile(outputPath.toString, classOf[String], classOf[String], classOf[RDDMultipleTextOutputFormat])
-
-    /*
-    val pairs = data.map( line => line.split(",")).flatMap(value => value.sliding(2).toSeq) // "word1,word2,word3" => Array(word1,word2,word3)
-                                          //.combinations(2) // Iterator
-                                                    // Array(Array(word1,word2), Array(word1,word3), Array(word2,word3))
-                                          .map( list => list(0) -> list(1) )// Array((word1,word2),(word1,word3),(word2,word3))
-
-    // Array((word1,word2),(word1,word3),(word2,word3),...)
-
-    val result = pairs.map( item => item -> 1) // Array(((word1,word2),1) ,((word1,word3),1),((word2,word3),1))
-                      .reduceByKey(_+_).sortBy(_._1, true, 4)   // Array(((word1,word2),1) ,((word1,word3),1),((word2,word3),1),...)
-
-    //val result = data.map(line => line.split(",")).flatMap(value => value.sliding(2)).map(tuple => (tuple(0), tuple(1)) -> 1).reduceByKey(_+_)
-
- result.foreach(println)
-
-    result.repartition(4).saveAsTextFile(outputPath.toString)
-    */
 
 
     val end = System.currentTimeMillis()
@@ -108,9 +95,26 @@ object PairsWord {
     val output = result.map(out => (path, out._1 + " " + out._2))
 
     output
-
-    //result.foreach(println)
     }
+  }
+
+  def createPairs(file : String, path : String): Unit = {
+
+    val content = sc.textFile(file)
+
+    val pairs = content.map(line => line.split(" "))
+      .flatMap(value => value.sliding(2))
+      .map(list => list(0) -> list(1))
+
+    val result = pairs.map(item => item -> 1)
+      .reduceByKey(_+_)
+
+    num += 1
+
+    val _path = path + num
+    val out = FileSystem.get(new Configuration()).create(new Path(_path))
+   // out.writeBytes(result.toString())
+    result.saveAsTextFile(out.toString())
 
   }
 
