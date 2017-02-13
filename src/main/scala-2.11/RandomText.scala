@@ -40,14 +40,14 @@ object RandomText {
 
     val hadoopConfig = new Configuration()
     val hdfs = FileSystem.get(hadoopConfig)
-    val outputPath = new Path(args(2))
+    /*val outputPath = new Path(args(2))
     if (hdfs.exists(outputPath)) {
       hdfs.delete(outputPath, true)
     }
+    */
+
 
     //val out = hdfs.create(outputPath)
-
-    val out = hdfs.create(outputPath)
 
     for (a <- 0 until (10) ) {
       val random = new Random()
@@ -57,9 +57,7 @@ object RandomText {
       do {
         items += 1
         writer.write(counts.takeSample(false, 3000, System.nanoTime()).mkString(" ") + ".\n")
-        //addFile(file.toString, outputPath.toString, hdfs.getConf)
       } while (file.length() < numBytesToWrite)
-      //IOUtils.copyBytes(new BufferedInputStream(new FileInputStream(file.toString)), out, 4096, true)
       writer.close()
     }
 
@@ -106,20 +104,6 @@ object RandomText {
       numBytes = in.read(b)
       out.write(b, 0, numBytes)
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
   }
