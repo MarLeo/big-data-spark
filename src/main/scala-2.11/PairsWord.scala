@@ -20,7 +20,6 @@ class RDDMultipleTextOutputFormat extends  MultipleTextOutputFormat[Any, Any] {
 }
 
 
-
 object PairsWord {
 
   val conf = new SparkConf()
@@ -61,10 +60,10 @@ object PairsWord {
     }
 
 
-  //  files.collect().foreach(filename => { createPairs(filename, outputPath.toString)})
+    files.collect().foreach(filename => { createPairs(filename, outputPath.toString)})
 
     // custom output format
-    output.saveAsHadoopFile(outputPath.toString, classOf[String], classOf[String], classOf[RDDMultipleTextOutputFormat])
+  //  output.saveAsHadoopFile(outputPath.toString, classOf[String], classOf[String], classOf[RDDMultipleTextOutputFormat])
 
 
     val end = System.currentTimeMillis()
@@ -113,11 +112,9 @@ object PairsWord {
 
     val _path = path + num
     val out = FileSystem.get(new Configuration()).create(new Path(_path))
-   // out.writeBytes(result.toString())
+    out.writeBytes(result.toString())
     result.saveAsTextFile(out.toString())
 
   }
-
-
 
 }

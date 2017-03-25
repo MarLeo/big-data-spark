@@ -14,7 +14,7 @@ import scala.util.Random
 
 object RandomText {
 
-  var numBytesToWrite = 30 * Math.pow(1024, 2)
+
   var items : Int = 0
 
   val conf = new SparkConf()
@@ -27,7 +27,10 @@ object RandomText {
 
   def main(args: Array[String]): Unit = {
 
+    val files = Integer.parseInt(args(2))
+    val partitions = Integer.parseInt(args(3))
 
+    var numBytesToWrite = partitions * Math.pow(1024, 2)
 
     val start = System.currentTimeMillis()
 
@@ -40,18 +43,12 @@ object RandomText {
 
     val hadoopConfig = new Configuration()
     val hdfs = FileSystem.get(hadoopConfig)
-    /*val outputPath = new Path(args(2))
-    if (hdfs.exists(outputPath)) {
-      hdfs.delete(outputPath, true)
-    }
-    */
 
 
-    //val out = hdfs.create(outputPath)
 
-    for (a <- 0 until (10) ) {
+    for (i <- 0 until (files) ) {
       val random = new Random()
-      val file = new File(args(1) + "file" + a + ".txt")
+      val file = new File(args(1) + "file" + i + ".txt")
       file.createNewFile()
       val writer = new PrintWriter(new FileOutputStream(file, true))
       do {
@@ -105,7 +102,5 @@ object RandomText {
       out.write(b, 0, numBytes)
     }
 
-
   }
-
 }

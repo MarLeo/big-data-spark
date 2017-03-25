@@ -145,3 +145,9 @@ fabric.properties
 project/
 
 /id_rsa_user04
+big-data-spark.iml
+src/main/java/
+src/main/scala-2.10/
+src/main/scala/
+src/test/
+/.idea/
